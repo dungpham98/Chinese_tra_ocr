@@ -12,6 +12,14 @@ from craft import CRAFT
 import craft_utils
 import os
 
+import easyocr
+
+reader = easyocr.Reader(['ch_tra'])
+
+img_count = 0
+detect_count = 0
+out = []
+
 
 def copy_state_dict(state_dict):
     if list(state_dict.keys())[0].startswith("module"):
@@ -29,7 +37,7 @@ class TextDetection:
 
     def __init__(self):
         
-        self.trained_model = '/home/tuandung/chinese-ocr/weights/craft_mlt_25k.pth'
+        self.trained_model = '../chinese-ocr/weights/craft_mlt_25k.pth'
         self.text_threshold = 0.75
         self.low_text = 0.6
         self.link_threshold = 0.9
@@ -107,7 +115,10 @@ class TextDetection:
 
         m_xmax = 0
         m_ymax = 0
+        m_xmin = 100000
+        m_ymin = 100000
 
+        
         for i, _b in enumerate(boxes):
             b = np.array(_b, dtype=np.int16)
             xmin = np.min(b[:, 0])
@@ -115,12 +126,17 @@ class TextDetection:
 
             xmax = np.max(b[:, 0])
             ymax = np.max(b[:, 1])
-            x_m = (xmax-xmin)/2
-            y_m = (ymax-ymin)/2
+            x_m = xmax-xmin
+            y_m = ymax-ymin
             if(m_xmax < xmax):
                 m_xmax = xmax
             if(m_ymax < ymax):
                 m_ymax = ymax
+
+            if(m_xmin > xmin):
+                m_xmin = xmin
+            if(m_ymin > ymin):
+                m_ymin = ymin
 
             b_x.append(x_m)
             b_y.append(y_m)
@@ -131,13 +147,19 @@ class TextDetection:
         b_x = np.array(b_x)
         b_y = np.array(b_y)
 
-        x_ave = np.mean(b_x)
-        y_ave = np.mean(b_y)
+        ave_x = np.mean(b_x)
+        ave_y = np.mean(b_y)
 
-        print(x_ave)
-        print(y_ave)
-        m_x = m_xmax/x_ave
-        m_y = m_ymax/y_ave
+        print(m_xmax)
+        print(ave_x)
+        m_x = int(m_xmax/ave_x)
+        print(m_ymax)
+        print(ave_y)
+        m_y = int(m_ymax/ave_y)
+
+        m = [[" " for x in range(m_x)] for y in range(m_y)]
+        m = np.array(m)
+        print(m.shape)
         for i, _b in enumerate(boxes):
             b = np.array(_b, dtype=np.int16)
             xmin = np.min(b[:, 0])
@@ -145,9 +167,22 @@ class TextDetection:
 
             xmax = np.max(b[:, 0])
             ymax = np.max(b[:, 1])
-            x_m =xmin+(xmax-xmin)/2
-            y_m =ymin+(ymax-ymin)/2
 
+            x_i = int(xmin/ave_x)
+            y_i = int(ymin/ave_y)
+
+            print(str(x_i)+"  "+str(y_i))
+
+            m[y_i][x_i] = "X"
+
+        print(m.shape)
+
+        a = m
+        mat = np.matrix(a)
+        with open('outfile.txt','wb') as f:
+            for line in mat:
+                np.savetxt(f, line, fmt='%s')
+    
         if verbose:
             for _b in boxes:
                 b = np.array(_b, dtype=np.int16)
@@ -164,7 +199,7 @@ class TextDetection:
 
                 cv2.destroyWindow("Crop")
 
-        return boxes, list_images
+        return boxes, list_images, m
 
 
 def process_image_folders(input_img_folder, output_folder):
@@ -187,7 +222,7 @@ def process_image_folders(input_img_folder, output_folder):
 
     for fname in list_files:
         print("Process ", fname)
-        bboxes, list_crop_images = detection.get_bounding_box('%s/%s' % (input_img_folder, fname), False)
+        bboxes, list_crop_images, text_matrix = detection.get_bounding_box('%s/%s' % (input_img_folder, fname), False)
 
      
         # Sort output as increase of bboxes
@@ -201,6 +236,18 @@ def process_image_folders(input_img_folder, output_folder):
 
             output_file = "%s/%s_%i.jpg" % (output_folder, basename, i)
             cv2.imwrite(output_file, image)
+
+        for image in os.listdir(sys.argv[2]):
+            image = sys.argv[2]+image
+            img_count = img_count + 1
+            output = reader.readtext(image)
+            if(output != []):
+                if(output[0][1] != ''):
+                    detect_count = detect_count + 1
+                    out.append(output[0][1])
+        print(out)
+        print(detect_count/img_count)
+
 
 
 if __name__ == "__main__":
