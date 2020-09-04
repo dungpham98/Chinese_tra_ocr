@@ -1,8 +1,9 @@
+
 import sys
 from collections import OrderedDict
 import cv2
 import numpy as np
-
+import json
 import torch
 import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
@@ -19,6 +20,7 @@ import PIL
 import numpy as np
 import cv2
 from PIL import Image, ImageDraw, ImageFont
+from pathlib import Path
 
 reader = easyocr.Reader(['ch_tra'])
 
@@ -127,7 +129,6 @@ class TextDetection:
                                                self.poly)
 
         boxes = craft_utils.adjustResultCoordinates(boxes, ratio_w, ratio_h)
-        list_images = []
 
         center_point = []
         for i, _b in enumerate(boxes):
@@ -141,31 +142,7 @@ class TextDetection:
             y_m = ymin+(ymax-ymin)/2
             center_point.append([x_m,y_m])
 
-        #print(center_point)
-
-        boxs = boxes
-        
-        for i in range(len(boxs)):
-            boxs[i][0][0] = boxes[i][0][0]-20
-            boxs[i][3][0] = boxes[i][3][0]-20
-            boxs[i][1][0] = boxes[i][1][0]+20
-            boxs[i][2][0] = boxes[i][2][0]+20
-
-            boxs[i][0][1] = boxes[i][0][1]-20
-            boxs[i][3][1] = boxes[i][3][1]-20
-            boxs[i][1][1] = boxes[i][1][1]+20
-            boxs[i][2][1] = boxes[i][2][1]+20
-    
-        for i, _b in enumerate(boxes):
-            b = np.array(_b, dtype=np.int16)
-            xmin = np.min(b[:, 0])
-            ymin = np.min(b[:, 1])
-
-            xmax = np.max(b[:, 0])
-            ymax = np.max(b[:, 1])
-
-            r = image[ymin:ymax, xmin:xmax, :].copy()
-            list_images.append(r)
+        list_images = get_box_img(boxes,image)
 
         if verbose:
             for _b in boxes:
@@ -182,8 +159,36 @@ class TextDetection:
                     return
 
                 cv2.destroyWindow("Crop")
+        return boxes,list_images, center_point, img_dim
 
-        return boxes, list_images, center_point, img_dim
+def get_box_img(boxes,image):
+    #print(center_point)
+    list_images = []
+    boxs = np.copy(boxes)
+    
+    for i in range(len(boxs)):
+        boxs[i][0][0] = boxes[i][0][0]-20
+        boxs[i][3][0] = boxes[i][3][0]-20
+        boxs[i][1][0] = boxes[i][1][0]+20
+        boxs[i][2][0] = boxes[i][2][0]+20
+
+        boxs[i][0][1] = boxes[i][0][1]-20
+        boxs[i][3][1] = boxes[i][3][1]-20
+        boxs[i][1][1] = boxes[i][1][1]+20
+        boxs[i][2][1] = boxes[i][2][1]+20
+    
+    for i, _b in enumerate(boxs):
+        b = np.array(_b, dtype=np.int16)
+        xmin = np.min(b[:, 0])
+        ymin = np.min(b[:, 1])
+
+        xmax = np.max(b[:, 0])
+        ymax = np.max(b[:, 1])
+
+        r = image[ymin:ymax, xmin:xmax, :].copy()
+        list_images.append(r)
+
+    return list_images
 
 def detect_symbol(filename,np_img,cen_point,idx):
     draw_text = init_parameters(cv2_img_add_text, text_size=100, text_rgb_color=(0, 0, 255), font='kaiu.ttf', replace=True)
@@ -191,7 +196,7 @@ def detect_symbol(filename,np_img,cen_point,idx):
     output = reader.readtext(filename)
     if(output != []):
         if(output[0][1] != ''):
-            detect = True
+            detect = output[0][1]
             draw_text(np_img, output[0][1], (cen_point[idx][0], cen_point[idx][1]))
 
     return detect
@@ -216,6 +221,41 @@ def draw_lines(np_img,sort_array):
             
     cv2.imshow("sample", image)  
     return image
+
+def add_JSON_detect(d,box):
+    color = 'blue'
+    if(d == False):
+        d = "Empty"
+        color = 'red'
+    region = {
+        "shape_attributes": {
+          "name": "rect",
+          "x":float(box[0][0]),
+          "y":float(box[0][1]),
+          "width":float(box[2][0]-box[0][0]),
+          "height":float(box[3][1]-box[1][1]),
+        },
+        "region_attributes": {
+          "name": d,
+          "color": color
+        }
+      }
+    return region
+
+def to_JSON(regions,img_name,size):
+    path = os.getcwd()
+    img_name = path+"/"+sys.argv[1]+img_name
+
+    res = {
+        img_name: {
+            "filename": img_name,
+            "size": size,
+            "regions": regions,
+            "file_attributes": {}
+          }
+        }
+
+    return res
 
 
 def process_image_folders(input_img_folder, output_folder):
@@ -242,13 +282,14 @@ def process_image_folders(input_img_folder, output_folder):
         np_img = np.ones(img_dim, dtype=np.uint8) * 255  # background with white color
         img_count = 0
         detect_count = 0
-
+        file_size = Path('%s/%s' % (input_img_folder, fname)).stat().st_size
         # Sort output as increase of bboxes
         sort_array = [(bboxes[i][0][0], bboxes[i][0][1], i) for i in range(len(bboxes))]
         sort_array = sorted(sort_array)
 
         ## down and right
         basename = os.path.basename(fname)[:-4]
+        regions = []
         for i in range(len(sort_array)):
             j = sort_array[i][2]
             image = list_crop_images[j]
@@ -257,8 +298,15 @@ def process_image_folders(input_img_folder, output_folder):
             cv2.imwrite(output_file, image)
 
             d = detect_symbol(output_file,np_img,cen_point,j)
+            region = add_JSON_detect(d,bboxes[j])
+            regions.append(region)
             if(d):
                 detect_count = detect_count+1
+
+        res = to_JSON(regions,fname,file_size)
+        json_detect = json.dumps(res, indent=4, sort_keys=True)
+        with open('boxes.json', 'w') as outfile:
+            json.dump(res, outfile)
         draw_lines(np_img,sort_array)
 
         print("detection rate: "+ str(detect_count/len(sort_array)))
