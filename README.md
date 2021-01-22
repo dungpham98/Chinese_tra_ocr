@@ -1,7 +1,7 @@
 # Chinese_tra_ocr
 Traditional Chinese OCR
 
-##Basic Setup
+## Basic Setup
 
 -Git clone CRAFT-pytorch:
 
@@ -13,6 +13,6 @@ https://drive.google.com/file/d/1BV1NxX0IqNFJV9RTJnDVFLybBSzwJNg0/view?usp=shari
 
 `pip install requirements.txt`
 
-##Run a detection:
+### Run a detection:
 
 `python3 text_detection.py [input_folder] [output_folder]`
