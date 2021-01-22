@@ -6,3 +6,5 @@ result*
 weights*
 test_img/
 CRAFT-pytorch/
+.out_det.jpg
+.boxes.json
