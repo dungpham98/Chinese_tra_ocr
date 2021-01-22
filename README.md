@@ -11,6 +11,8 @@ Traditional Chinese OCR
 
 https://drive.google.com/file/d/1BV1NxX0IqNFJV9RTJnDVFLybBSzwJNg0/view?usp=sharing
 
+-Install requirements:
+
 `pip install requirements.txt`
 
 ### Run a detection:
