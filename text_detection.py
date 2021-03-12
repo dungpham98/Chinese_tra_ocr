@@ -13,7 +13,7 @@ sys.path.append('CRAFT-pytorch')
 from craft import CRAFT
 import craft_utils
 import os
-
+import imgproc
 import easyocr
 
 from tqdm import tqdm
