@@ -10,7 +10,6 @@ from torch.autograd import Variable
 import sys
 sys.path.append('CRAFT-pytorch')
 
-import imgproc
 from craft import CRAFT
 import craft_utils
 import os
