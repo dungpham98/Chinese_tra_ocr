@@ -2,6 +2,9 @@
 Traditional Chinese OCR
 
 ## Basic Setup
+-Git clone this repository
+
+-Cd this repo
 
 -Git clone CRAFT-pytorch:
 
