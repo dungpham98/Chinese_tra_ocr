@@ -14,6 +14,8 @@ Traditional Chinese OCR
 
 https://drive.google.com/file/d/1BV1NxX0IqNFJV9RTJnDVFLybBSzwJNg0/view?usp=sharing
 
+- Put the weight file in the weight folder
+
 -Install requirements:
 
 `pip install -r requirements.txt`
