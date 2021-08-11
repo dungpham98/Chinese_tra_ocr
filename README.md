@@ -13,8 +13,8 @@ https://drive.google.com/file/d/1BV1NxX0IqNFJV9RTJnDVFLybBSzwJNg0/view?usp=shari
 
 -Install requirements:
 
-`pip install requirements.txt`
+`pip install -r requirements.txt`
 
 ### Run a detection:
 
-`python3 text_detection.py [input_folder] [output_folder]`
+`python text_detection.py [input_folder] [output_folder]`
